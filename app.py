@@ -12,6 +12,24 @@ import subprocess
 import time
 from pydub import AudioSegment
 import math
+import sys
+import subprocess
+
+# 依存関係の確認
+def check_dependencies():
+    try:
+        import whisper
+        import google.generativeai
+        from pydub import AudioSegment
+        return True
+    except ImportError as e:
+        st.error(f"依存関係エラー: {e}")
+        st.info("requirements.txtを確認してください")
+        return False
+
+# メイン関数の最初で呼び出し
+if not check_dependencies():
+    st.stop()
 
 # ページ設定
 st.set_page_config(
