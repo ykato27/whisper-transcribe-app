@@ -2,3 +2,4 @@ streamlit
 openai-whisper
 pydub
 google-generativeai
+python-docx
