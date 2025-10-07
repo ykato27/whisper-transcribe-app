@@ -675,16 +675,16 @@ def show_main_page():
     st.info("""
     **💡 ファイルアップロード方法:**
     
-    **方法1: 直接アップロード（推奨）**
-    - `.docx`ファイルをそのままアップロード（環境によってはブロックされる場合があります）
-    - `.vtt`ファイルは `.vtt.txt` にリネーム
+    **📁 対応形式（そのままアップロード可能）**
+    - 🎤 音声/動画: MP3, WAV, M4A, OGG, FLAC, MP4, AVI, MOV, MKV
+    - 📝 Word: DOCX, DOC
+    - 🎬 字幕: VTT
+    - 📄 テキスト: TXT, MD
     
-    **方法2: リネームしてアップロード**
-    - `.docx` → `.doc.txt` にリネーム（例: `議事録.docx` → `議事録.doc.txt`）
-    - `.vtt` → `.vtt.txt` にリネーム（例: `字幕.vtt` → `字幕.vtt.txt`）
-    
-    **方法3: テキスト直接入力**
-    - 「📝 テキスト直接入力」タブで内容をペースト
+    **⚠️ エラーが出る場合の対処法:**
+    - `.docx` → `.doc.txt` にリネーム
+    - `.vtt` → `.vtt.txt` にリネーム
+    - または「📝 テキスト直接入力」タブを使用
     """)
     
     # タブで入力方法を選択
@@ -699,10 +699,12 @@ def show_main_page():
                 "mp4", "avi", "mov", "mkv",
                 # テキスト
                 "txt", "md", "text",
-                # Word（試験的）
+                # Word
                 "docx", "doc",
+                # VTT
+                "vtt",
             ],
-            help="VTTファイルは .vtt.txt にリネームしてください",
+            help="対応形式: 音声/動画/テキスト/Word/VTT",
         )
         
         # ファイル名から元の形式を推測
@@ -717,6 +719,9 @@ def show_main_page():
             elif filename.endswith(('.docx', '.doc')):
                 st.info("📝 Wordファイルとして処理します")
                 st.session_state.file_type = "word"
+            elif filename.endswith('.vtt'):
+                st.info("🎬 VTTファイルとして処理します")
+                st.session_state.file_type = "vtt"
     
     with input_tab2:
         st.markdown("""
@@ -1074,6 +1079,36 @@ def show_main_page():
                 st.error(f"❌ {str(e)}")
                 if not DOCX_AVAILABLE:
                     st.info("💡 ターミナルで以下を実行してください:\n```\npip install python-docx\n```")
+                return
+
+        elif is_vtt_file(filename):
+            # ==================================
+            # 通常のVTTファイルの処理
+            # ==================================
+            st.session_state.file_type = "vtt"
+
+            st.success("🎬 VTTファイルを検出しました")
+            st.info("📝 字幕テキストを抽出してGeminiで議事録を生成します")
+
+            # VTTファイル読み込み
+            try:
+                with st.spinner("📄 VTTファイルからテキストを抽出中..."):
+                    text_content = read_vtt_file(uploaded_file)
+                    st.session_state.transcribed_text = text_content
+
+                st.markdown("---")
+                st.markdown("### 📄 抽出したテキスト")
+
+                st.text_area(
+                    "内容", value=text_content, height=300, key="vtt_direct_text_display"
+                )
+
+                st.success(f"✅ VTTファイルからテキストを抽出しました（{len(text_content)}文字）")
+
+            except Exception as e:
+                st.error(f"❌ {str(e)}")
+                if not WEBVTT_AVAILABLE:
+                    st.info("💡 webvtt-pyライブラリのインストールを推奨します")
                 return
 
         else:
