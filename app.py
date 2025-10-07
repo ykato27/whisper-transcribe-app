@@ -45,6 +45,10 @@ if "gemini_model" not in st.session_state:
     st.session_state.gemini_model = "gemini-2.5-flash"
 if "custom_prompts" not in st.session_state:
     st.session_state.custom_prompts = {}
+if "uploaded_file_name" not in st.session_state:
+    st.session_state.uploaded_file_name = None
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "🏠 ホーム"
 
 
 # キャッシュ設定
@@ -647,6 +651,12 @@ def show_settings_page():
             except json.JSONDecodeError:
                 st.error("❌ 無効なJSONファイルです")
 
+    # ホームに戻るボタン
+    st.markdown("---")
+    if st.button("🏠 ホームに戻る", type="primary", use_container_width=True):
+        st.session_state.current_page = "🏠 ホーム"
+        st.rerun()
+
 
 def show_main_page():
     """メインページを表示"""
@@ -710,6 +720,9 @@ def show_main_page():
         # ファイル名から元の形式を推測
         if uploaded_file:
             filename = uploaded_file.name.lower()
+            # ファイル名をセッション状態に保存
+            st.session_state.uploaded_file_name = uploaded_file.name
+            
             if ".doc.txt" in filename or ".docx.txt" in filename:
                 st.info("📝 Wordファイル（リネーム版）として処理します")
                 st.session_state.file_type = "word_renamed"
@@ -794,6 +807,10 @@ def show_main_page():
         # 既存の文字起こしテキストがある場合は表示
         if st.session_state.transcribed_text:
             st.success("✅ 文字起こしテキストが保存されています")
+            
+            if st.session_state.uploaded_file_name:
+                st.info(f"📄 ファイル: {st.session_state.uploaded_file_name}")
+            
             st.text_area(
                 "保存済みテキスト",
                 value=st.session_state.transcribed_text,
@@ -806,6 +823,8 @@ def show_main_page():
                 if st.button("🗑️ クリア", type="secondary"):
                     st.session_state.transcribed_text = ""
                     st.session_state.minutes = ""
+                    st.session_state.uploaded_file_name = None
+                    st.session_state.file_type = None
                     st.rerun()
         else:
             st.info("👆 ファイルをアップロードしてください")
@@ -1217,8 +1236,24 @@ def main():
     """メイン関数"""
     # サイドバーでページ選択
     page = st.sidebar.radio(
-        "ナビゲーション", ["🏠 ホーム", "⚙️ 設定"], label_visibility="collapsed"
+        "ナビゲーション", 
+        ["🏠 ホーム", "⚙️ 設定"],
+        index=0 if st.session_state.current_page == "🏠 ホーム" else 1,
+        label_visibility="collapsed"
     )
+    
+    # 現在のページを保存
+    st.session_state.current_page = page
+    
+    # 保存済みデータがある場合、サイドバーに表示
+    if st.session_state.transcribed_text:
+        st.sidebar.markdown("---")
+        st.sidebar.success("✅ データ保存中")
+        if st.session_state.uploaded_file_name:
+            st.sidebar.caption(f"📄 {st.session_state.uploaded_file_name}")
+        st.sidebar.caption(f"📝 {len(st.session_state.transcribed_text)}文字")
+        if st.session_state.minutes:
+            st.sidebar.caption("📋 議事録生成済み")
 
     if page == "🏠 ホーム":
         show_main_page()
