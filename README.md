@@ -20,8 +20,19 @@ OpenAIのWhisperモデルを使用した音声文字起こしアプリ
 3. [Streamlit Cloud](https://streamlit.io/cloud)でデプロイ
 
 ## ローカル実行
+依存関係は uv で管理しています（`pyproject.toml` / `uv.lock`）。
+`requirements.txt` は Streamlit Cloud 用に uv から書き出した固定版です。
+
 ```bash
-# 依存関係インストール
+# 依存関係インストール（uv）
+uv sync
+
+# アプリ起動
+uv run streamlit run app.py
+```
+
+pip を使う場合:
+```bash
 pip install -r requirements.txt
 
 # FFmpegインストール（Ubuntu/Debian）

@@ -11,8 +11,20 @@ import subprocess
 import time
 from pydub import AudioSegment
 import math
-import google.generativeai as genai
 from datetime import datetime
+
+# UI非依存のロジック（Gemini連携・ファイル判定）は gemini_utils に分離。
+# モデルの既定値・一覧も同モジュールで一元管理する。
+from gemini_utils import (
+    DEFAULT_GEMINI_MODEL,
+    GEMINI_MODEL_DESCRIPTIONS,
+    GEMINI_MODELS,
+    generate_minutes,
+    is_audio_or_video_file,
+    is_text_file,
+    is_vtt_file,
+    is_word_file,
+)
 import json
 import re
 
@@ -42,7 +54,7 @@ if "file_type" not in st.session_state:
 if "api_key" not in st.session_state:
     st.session_state.api_key = ""
 if "gemini_model" not in st.session_state:
-    st.session_state.gemini_model = "gemini-2.5-flash"
+    st.session_state.gemini_model = DEFAULT_GEMINI_MODEL
 if "custom_prompts" not in st.session_state:
     st.session_state.custom_prompts = {}
 if "uploaded_file_name" not in st.session_state:
@@ -201,61 +213,25 @@ def get_all_prompt_templates():
 
 
 def generate_minutes_with_gemini(transcript, prompt_template, api_key, model_name=None):
-    """Gemini APIで議事録を生成"""
+    """Gemini APIで議事録を生成（本体は gemini_utils.generate_minutes）"""
     try:
-        genai.configure(api_key=api_key)
-
-        # モデル名を取得
         if model_name is None:
-            model_name = st.session_state.get("gemini_model", "gemini-pro")
-
-        model = genai.GenerativeModel(model_name)
+            model_name = st.session_state.get("gemini_model", DEFAULT_GEMINI_MODEL)
+        if model_name not in GEMINI_MODELS:
+            # 旧バージョンで保存された廃止済みモデル名などが残っていた場合の保護
+            model_name = DEFAULT_GEMINI_MODEL
 
         current_date = datetime.now().strftime("%Y年%m月%d日")
-        prompt = prompt_template.format(transcript=transcript, date=current_date)
-
-        response = model.generate_content(prompt)
-        return response.text
+        return generate_minutes(
+            transcript,
+            prompt_template,
+            api_key,
+            model_name=model_name,
+            date_str=current_date,
+        )
 
     except Exception as e:
         raise Exception(f"Gemini API エラー: {str(e)}")
-
-
-def is_audio_or_video_file(filename):
-    """音声・動画ファイルかどうかを判定"""
-    audio_video_extensions = [
-        ".mp3",
-        ".wav",
-        ".m4a",
-        ".ogg",
-        ".flac",
-        ".mp4",
-        ".avi",
-        ".mov",
-        ".mkv",
-    ]
-    ext = os.path.splitext(filename)[1].lower()
-    return ext in audio_video_extensions
-
-
-def is_text_file(filename):
-    """テキストファイルかどうかを判定（VTTを含む）"""
-    text_extensions = [".txt", ".md", ".text", ".vtt"]
-    ext = os.path.splitext(filename)[1].lower()
-    return ext in text_extensions
-
-
-def is_word_file(filename):
-    """Wordファイルかどうかを判定"""
-    word_extensions = [".docx", ".doc"]
-    ext = os.path.splitext(filename)[1].lower()
-    return ext in word_extensions
-
-
-def is_vtt_file(filename):
-    """VTTファイルかどうかを判定"""
-    ext = os.path.splitext(filename)[1].lower()
-    return ext == ".vtt"
 
 
 def read_word_file(uploaded_file):
@@ -451,21 +427,9 @@ def show_settings_page():
 
     # モデル選択
     st.markdown("### モデル選択")
-    gemini_models = [
-        "gemini-2.5-flash",  # 最新の高速・多機能モデル (推奨)
-        "gemini-2.5-pro",  # 最新の最高性能モデル
-        "gemini-1.5-flash",  # 前世代の高速モデル
-        "gemini-1.5-pro",  # 前世代の最高性能モデル
-        "gemini-pro",  # 旧世代の安定版
-    ]
-
-    model_descriptions = {
-        "gemini-2.5-flash": "最新・最速のフラッシュモデル（高性能＆低コスト）",
-        "gemini-2.5-pro": "最新・最高性能のプロモデル（複雑なタスク向け）",
-        "gemini-1.5-flash": "前世代の高速モデル",
-        "gemini-1.5-pro": "前世代の最高性能モデル",
-        "gemini-pro": "旧世代の安定版（レガシー）",
-    }
+    # モデル一覧・説明は gemini_utils で一元管理（廃止済みモデルは含めない）
+    gemini_models = GEMINI_MODELS
+    model_descriptions = GEMINI_MODEL_DESCRIPTIONS
 
     # 現在のモデルがリストにない場合のフォールバックインデックスを設定
     default_index = 0
